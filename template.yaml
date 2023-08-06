@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  nodejs-app
+
+  Template for dynamo nodejs-app
+  
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 1
+    MemorySize: 128
+
+Resources:
+  UserTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: user-table
+      PrimaryKey:
+        Name: id
+        Type: String
+      "ProvisionedThroughput" : {
+        "ReadCapacityUnits" : 1,
+        "WriteCapacityUnits" : 1
+      }
+
+  UuidLayer:
+    Type: AWS::Serverless::LayerVersion
+    Metadata:
+      BuildMethod: nodejs14.x
+    Properties:
+      LayerName: uuid-layer
+      Description: uuid library for nodejs app
+      ContentUri: layer/
+      CompatibleRuntimes:
+        - nodejs14.x
+
+  UserRestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      MethodSettings:
+        - ResourcePath: /users
+          HttpMethod: GET
+          CachingEnabled: false
+        - ResourcePath: /users
+          HttpMethod: POST
+          CachingEnabled: false
+      Domain:
+        DomainName: api.nhatminhhouse.click
+        CertificateArn: arn:aws:acm:us-east-1:160525238206:certificate/47208dd4-635b-4e0a-98ee-3a5405475200
+        EndpointConfiguration: EDGE
+        Route53:
+          HostedZoneId: Z08415083NZF86ULAJGR8
+
+  UserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: user/
+      Handler: app.lambdaHandler
+      Runtime: nodejs14.x
+      Layers:
+        - !Ref UuidLayer
+      Architectures:
+      - x86_64
+      Events:
+        GetUsers:
+          Type: Api
+          Properties:
+            Path: /users
+            Method: get
+            RestApiId:
+              Ref: UserRestApi
+
+        AddUser:
+          Type: Api
+          Properties:
+            Path: /users
+            Method: post
+            RestApiId:
+              Ref: UserRestApi
+
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref UserTable
+      Policies:
+        - DynamoDBCrudPolicy: 
+            TableName: !Ref UserTable
+          
+
+Outputs:
+  UserRestApi:
+    Description: API Gateway endpoint URL for Prod stage for User function
+    Value: !Sub "https://${UserRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/"
+  UserFunction:
+    Description: User Lambda Function ARN
+    Value: !GetAtt UserFunction.Arn
+  UserTable:
+    Description: "DynamoDB user table name"
+    Value: !GetAtt UserTable.Arn

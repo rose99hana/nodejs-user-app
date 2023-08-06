@@ -1,0 +1,10 @@
+{
+  "name": "uuid",
+  "version": "1.0.0",
+  "description": "uuid library for nodejs app",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "uuid": "^9.0.0"
+  }
+}
